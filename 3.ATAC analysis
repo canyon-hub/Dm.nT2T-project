@@ -12,9 +12,10 @@ samtools sort -n -@ 25 SRR.bam -o SRR_sorted.bam
 Genrich -j -r -p 0.01 -t SRR1_sorted.bam,SRR2_sorted.bam,SRR3_sorted.bam -o Ref.narrowPeak
 cat *.narrowPeak > Ref_all.narrowPeak
 
+#3 liftover
 minimap2 -cx asm5 --cs -t 50 reference.fasta sample.fasta > sample_to_Ref.paf
 awk '{OFS="\t"; $7=int($7); $8=int($8); print}' sample_all.narrowPeak > sample_all_int.narrowPeak
 liftOver sample_all_int.narrowPeak sample_to_Ref.chain sample_all_to_Ref.narrowPeak unMapped.txt
 
-#3 grep new regulatory region
+#4 grep new regulatory region
 bedtools intersect -a sample_all_to_Ref.narrowPeak -b Ref_all.narrowPeak -v > sample_new.narrowPeak
