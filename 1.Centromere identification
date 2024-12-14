@@ -1,0 +1,26 @@
+# This method based on the previous reports Shi et al.2023(https://doi.org/10.1093/hr/uhad061)
+
+#1 grep specific TE family
+grep 'Jockey' sample_TE.gff > sample_TE_Jockey.gff
+
+#2 find repeat motif
+trf ../sample.fasta 2 7 7 80 10 50 500 -f -d -m
+trf2gff -o sample_trf.gff3 < ../sample.fasta.2.7.7.80.10.50.500.dat
+cat sample_trf.gff3 | awk '{split($9,a,";");print $1"\t"$4"\t"$5"\t"a[1]"\t"a[2]"\t"a[3]"\t"a[4]"\t"a[9]}' > sample_trf.split.txt
+
+#3 get motif sequences
+grep 'period=5;' sample_trf.gff3 > trf_5bp.split.gff3
+grep 'period=6;' sample_trf.gff3 > trf_6bp.split.gff3
+grep 'period=7;' sample_trf.gff3 > trf_7bp.split.gff3 
+grep 'period=8;' sample_trf.gff3 > trf_8bp.split.gff3
+grep 'period=9;' sample_trf.gff3 > trf_9bp.split.gff3
+grep 'period=10;' sample_trf.gff3 > trf_10bp.split.gff3
+grep 'period=11;' sample_trf.gff3 > trf_11bp.split.gff3
+grep 'period=12;' sample_trf.gff3 > trf_12bp.split.gff3
+grep 'period=16;' sample_trf.gff3 > trf_16bp.split.gff3
+grep 'period=17;' sample_trf.gff3 > trf_17bp.split.gff3
+grep 'period=18;' sample_trf.gff3 > trf_18bp.split.gff3
+grep 'period=36;' sample_trf.gff3 > trf_36bp.split.gff3
+grep 'period=359;' sample_trf.gff3 > trf_359bp.split.gff3
+
+#4 IGV visualization
