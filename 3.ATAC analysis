@@ -1,0 +1,20 @@
+#1 sample.genome peak calling
+bowtie2 -p 50 -x sample.fasta -1 SRR__1.fastq.gz -2 SRR_2.fastq.gz -S SRR.sam
+samtools view -@ 25 -bS SRR.sam > SRR.bam
+samtools sort -n -@ 25 SRR.bam -o SRR_sorted.bam &
+Genrich -j -r -p 0.01 -t SRR1_sorted.bam,SRR2_sorted.bam,SRR3_sorted.bam -o sample.narrowPeak
+cat *.narrowPeak > sample_all.narrowPeak
+
+#2 reference.genome peak calling
+bowtie2 -p 50 -x Ref -1 SRR_1.fastq.gz -2 SRR_2.fastq.gz -S SRR.sam
+samtools view -@ 25 -bS SRR.sam > SRR.bam
+samtools sort -n -@ 25 SRR.bam -o SRR_sorted.bam
+Genrich -j -r -p 0.01 -t SRR1_sorted.bam,SRR2_sorted.bam,SRR3_sorted.bam -o Ref.narrowPeak
+cat *.narrowPeak > Ref_all.narrowPeak
+
+minimap2 -cx asm5 --cs -t 50 reference.fasta sample.fasta > sample_to_Ref.paf
+awk '{OFS="\t"; $7=int($7); $8=int($8); print}' sample_all.narrowPeak > sample_all_int.narrowPeak
+liftOver sample_all_int.narrowPeak sample_to_Ref.chain sample_all_to_Ref.narrowPeak unMapped.txt
+
+#3 grep new regulatory region
+bedtools intersect -a sample_all_to_Ref.narrowPeak -b Ref_all.narrowPeak -v > sample_new.narrowPeak
