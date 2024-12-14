@@ -1,0 +1,67 @@
+
+#1 reads alignment
+hisat2 --dta -p 20 -x samlple.index -1 SRR_1.fastq.gz -2 SRR_2.fastq.gz -S SRR.sam > SRR.log 2>&1
+samtools view -@ 20 -b SRR.sam > SRR.bam
+samtools sort SRR.bam -o SRR_sorted.bam
+
+# gene quantification
+stringtie -p 20 -G sample.gff -e -A SRR_gene_count.csv -o SRR_sample.gtf SRR.bam &
+./prepDE.py3 -i SRR_sample.gtf -g gene_count_matrix.csv -t transcript_count_matrix.csv -l 150
+
+# differential gene expression analysis
+# script DEG.R
+#########################
+library(DESeq2)
+library(factoextra)
+library(FactoMineR)
+library(ggrepel)
+library(ggplot2)
+
+## raw count
+count_matrix <- read.csv("gene_count_matrix_filtered.csv", header = T,row.names = 1, check.names = F)
+sampleTable <- read.csv("sample_group.csv", header = T, check.names = F)
+sampleTable$group <- factor(sampleTable$group, levels = c("control","treat"))
+table(sampleTable$group)
+count_matrix <- count_matrix[, sampleTable$sample]
+
+## construct dds matrix
+dds <- DESeqDataSetFromMatrix(countData = count_matrix, colData = sampleTable, design = ~group)
+dds <- dds[rowSums(counts(dds)) > 1, ] 
+dds <- estimateSizeFactors(dds) 
+
+## PCA group
+group <- factor(sampleTable$group, levels = c("control", "treat"))
+count_matrix <- count_matrix[, sampleTable$sample] 
+count_matrix_log <- log(count_matrix+1)
+data.pca <- prcomp(t(count_matrix_log))
+write.table(data.pca$rotation, file="PC.xls", quote=F, sep = "\t")
+write.table(predict(data.pca), file="newTab.xls", quote=F, sep = "\t")
+pca.sum=summary(data.pca)
+write.table(pca.sum$importance, file="importance.xls", quote=F, sep = "\t")
+fviz_pca_ind(data.pca,  
+             col.ind=group, 
+             mean.point=F,   
+             addEllipses = T,   
+             legend.title="Groups",   
+             show.legend = F,
+             ellipse.type="confidence",   
+             ellipse.level=0.9, 
+             palette = c("#FC4E07", "#00AFBB"))+
+  theme(panel.border = element_rect(fill=NA,color="black", linewidth = 1, linetype="solid"),
+        plot.title = element_blank())
+ggsave("PCA-gene1.pdf", plot = last_plot(), width = 8, height = 6)
+
+## DEG analysis
+dds <- DESeq(dds)
+res <- results(dds, contrast = c("group","control","treat"))
+DEG <- as.data.frame(res) 
+DEG_clean <- DEG[!is.na(DEG$pvalue) & !is.na(DEG$padj), ]
+DEG_clean$change <- as.factor(
+  ifelse(DEG_clean$pvalue < 0.05 & abs(DEG_clean$log2FoldChange) >= 1,
+         ifelse(DEG_clean$log2FoldChange > 1,'Up','Down'),'Stable')) 
+table(DEG_clean$change)
+DEG_write <- cbind(symbol = rownames(DEG_clean), DEG_clean)
+sig_diff <- subset(DEG_clean, DEG_clean$pvalue < 0.05 & abs(DEG_clean$log2FoldChange) >= 1)
+sig_diff_write <- cbind(symbol = rownames(sig_diff), sig_diff)
+write.csv(DEG_write, file = paste0('DEG_all.csv'))
+write.csv(sig_diff_write, file = paste0('DEG_sig.csv'))
