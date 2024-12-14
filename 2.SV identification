@@ -1,0 +1,25 @@
+# Four methods used for SV identification
+
+#1 sniffles
+pbmm2 align --preset CCS --log-level INFO --log-file CCS.log ref.mmi sample.ccs.bam sample.ccs.align.bam 
+samtools sort -@ 30 -o sample.ccs.align.sorted.bam sample.ccs.align.bam
+samtools index -b -@ 30 sample.ccs.align.sorted.bam
+sniffles -i sample.ccs.align.sorted.bam -v sample.ccs.align.vcf -t 30
+bcftools view -i 'FILTER = "PASS"' sample.ccs.align.vcf > sniffles.filtered.vcf
+
+#2 pbsv
+pbsv discover sample.ccs.align.sorted.bam sample.ccs.svsig.gz
+pbsv call --ccs --log-level INFO --log-file pbsv.sample.ccs.log reference.fasta sample.ccs.svsig.gz sample.ccs.var.vcf
+bcftools view -i 'FILTER = "PASS"' sample.ccs.var.vcf > pbsv.filtered.vcf
+
+#3 cuteSV
+cuteSV --max_cluster_bias_INS 1000 --diff_ratio_merging_INS 0.9 --max_cluster_bias_DEL 1000 --diff_ratio_merging_DEL 0.5 --threads 10 sample.ccs.align.sorted.bam reference.fasta sample.ccs.SV.vcf cutesv_tmp_dir 
+bcftools view -i 'FILTER = "PASS"' sample.ccs.SV.vcf > cutesv.filtered.vcf
+
+#4 svim
+svim alignment svim_ccs sample.ccs.align.sorted.bam referencec.fasta
+bcftools view -i 'FILTER = "PASS"' variants.vcf > svim.filtered.vcf
+
+#5 merge SV results
+ls *vcf > sample_all_vcf_files
+./SURVIVOR merge sample_all_vcf_files 1000 2 1 1 0 50 sample_merged.vcf
